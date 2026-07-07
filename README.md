@@ -1,156 +1,193 @@
-# FCMB Assessment – Terraform, Helm, Docker & GitHub Actions
+# Terraform, Helm, Docker & GitHub Actions
 
 ## Overview
-This repository implements a production-oriented Infrastructure as Code and CI pipeline solution for the FCMB DevOps assessment.
 
-### Objectives Delivered
-- Reusable Terraform module for Amazon ECR.
-- Root Terraform configuration.
-- Helm chart for a microservice.
-- Configurable PodDisruptionBudget.
-- Configurable ResourceQuota and container requests/limits.
-- Dynamic image repository injection.
-- Dockerized microservice.
-- GitHub Actions CI pipeline performing validation, image build/push and Helm dry-run.
+This repository contains an Infrastructure as Code solution for provisioning AWS infrastructure and validating application deployment through an automated CI pipeline.
+
+The solution provisions an Amazon EKS cluster and an Amazon ECR repository using Terraform, packages a microservice with Docker, deploys it using Helm, and validates the entire workflow with GitHub Actions.
+
+---
+
+## Solution Components
+
+### Infrastructure Provisioning
+
+Terraform is used to provision the AWS infrastructure.
+
+The infrastructure consists of:
+
+- Amazon VPC
+- Amazon EKS Cluster
+- Amazon ECR Repository
+
+The ECR repository is implemented as a reusable Terraform module, while the VPC and EKS cluster use the official AWS Terraform modules.
+
+### Containerization
+
+The application is containerized using Docker and served through NGINX.
+
+The resulting image is published to Docker Hub and later referenced during Helm validation.
+
+### Kubernetes Deployment
+
+The application is packaged as a Helm chart.
+
+The chart supports configurable:
+
+- Image repository
+- Resource requests and limits
+- ResourceQuota
+- PodDisruptionBudget
+- Ingress configuration
+
+This allows the same chart to be reused across different environments by changing only configuration values.
+
+### Continuous Integration
+
+GitHub Actions is used to automate validation of both the infrastructure and application.
+
+The workflow performs:
+
+- Terraform formatting check
+- Terraform initialization
+- Terraform validation
+- Terraform plan
+- Docker image build
+- Docker image push to Docker Hub
+- Helm chart linting
+- Helm dry-run installation
+
+---
 
 ## Repository Structure
+
 ```text
 .
-├── .github/workflows/main.yml
-├── terraform/
-│   ├── modules/ecr
+├── .github/workflows
+├── terraform
+│   ├── modules
+│   │   └── ecr
 │   ├── main.tf
 │   ├── variables.tf
-│   └── outputs.tf
+│   ├── outputs.tf
+│   ├── providers.tf
+│   └── versions.tf
 ├── helm/microservice
-├── app/
+├── app
 ├── Dockerfile
 └── README.md
 ```
 
-## Architecture
-Developer Commit
-→ GitHub Actions
-→ Terraform fmt / init / validate / plan
-→ Docker Build
-→ Docker Push (Docker Hub)
-→ Helm Lint
-→ Helm Dry Run (image.repository injected dynamically)
+---
 
-## Terraform
-The Terraform configuration is modularized with a reusable ECR module. Validation includes:
-- terraform fmt -check
-- terraform init
-- terraform validate
-- terraform plan
+## Validation
 
-The implementation follows reusable module principles to simplify future extension for EKS and additional AWS services.
+### Terraform
 
-### Images
+The infrastructure configuration was validated using:
+
+```bash
+terraform fmt -check
+terraform init
+terraform validate
+terraform plan
+```
+
 ![alt text](Images/TerraformInit.png)
 ![alt text](Images/Terraformplan.png)
+---
 
-## Helm
-The Helm chart supports:
-- Dynamic image repository
-- Configurable resource requests/limits
-- Optional ResourceQuota
-- PodDisruptionBudget
-- Configurable Ingress
-- Dry-run validation
+### Helm
 
-Validation:
+The Helm chart was validated using:
+
 ```bash
 helm lint helm/microservice
-helm install fcmb-app helm/microservice --dry-run=client --debug
+
+helm install microservice helm/microservice \
+  --dry-run=client --debug
 ```
-### Images
+
 ![alt text](Images/helmcreate.png)
 ![alt text](Images/helmlint.png)
 
+---
 
-## Docker
-The application is containerized using Docker and exposed through NGINX.
+### Docker
 
-Validation:
+The application image was built and tested locally before being pushed to Docker Hub.
+
 ```bash
 docker build -t fcmb-microservice .
+
 docker run -d -p 8080:80 fcmb-microservice
 ```
 
-### Images
+The container was verified by accessing the application through:
+
+```
+http://localhost:8080
+```
+
 ![alt text](Images/dockerfile-build.png)
-
-The app was working on the browser on port 8080:80
-
-### Images
 ![alt text](Images/port8080.png)
 
+---
+
 ## GitHub Actions
+
+The CI workflow validates infrastructure changes before building and publishing the application image.
+
 Pipeline stages:
-1. Terraform Quality Gate
+
+1. Terraform Validation
 2. Docker Build and Push
-3. Helm Validation
+3. Helm Chart Validation
 
-## Engineering Issue Encountered
+![alt text](Images/Passedpipeline.png)
 
-### Docker Hub Authentication Failure
+---
 
-Initial pipeline failure:
+## Troubleshooting
+
+### Docker Hub Authentication
+
+During pipeline execution the Docker authentication stage failed with:
 
 ```text
 Error: Username and password required
 ```
-### Images
 ![alt text](Images/failed_pipeline.png)
 
-### Root Cause
+The workflow expected the following GitHub repository secrets:
 
-The workflow expected repository secrets named:
+- `DOCKER_USERNAME`
+- `DOCKER_PASSWORD`
 
-- DOCKER_USERNAME
-- DOCKER_PASSWORD
+The Docker Hub username had initially been added as the secret name instead of the secret value, causing the workflow to receive empty credentials.
 
-A repository secret had instead been created using the Docker username itself as the secret name, so the workflow received empty credentials.
+The issue was resolved by creating the correct repository secrets and using a Docker Hub Personal Access Token instead of an account password.
 
-### Resolution
+After updating the repository secrets, the workflow completed successfully.
 
-Repository secrets were corrected to:
+---
 
-| Secret | Purpose |
-|--------|---------|
-| DOCKER_USERNAME | Docker Hub username |
-| DOCKER_PASSWORD | Docker Hub Personal Access Token |
+## Security
 
-The workflow authenticated successfully using:
+The implementation follows a few basic security practices:
 
-```yaml
-uses: docker/login-action@v3
-with:
-  username: ${{ secrets.DOCKER_USERNAME }}
-  password: ${{ secrets.DOCKER_PASSWORD }}
-```
+- Docker Hub authentication uses a Personal Access Token.
+- AWS credentials are provided through GitHub Secrets.
+- Terraform state files are excluded from version control.
+- Sensitive files are ignored through `.gitignore`.
 
-After correcting the secret names, the pipeline completed successfully.
+---
 
-### Images
-![alt text](Images/Passedpipeline.png)
+## Future Improvements
 
-## Pipeline Result
+Possible enhancements include:
 
-Successful execution of:
-- Terraform Quality Gate
-- Docker Build and Push
-- Helm Validation
-
-## Security Considerations
-- Docker Hub Personal Access Token used instead of account password.
-- Terraform state excluded from version control.
-- Sensitive files ignored through .gitignore.
-- Dynamic configuration managed through Helm values.
-
-## Future Enhancements
-- Remote Terraform backend using S3 and DynamoDB locking.
-- GitHub OIDC authentication to AWS.
-- ArgoCD GitOps deployment.
+- Remote Terraform state using Amazon S3 with DynamoDB state locking.
+- GitHub OIDC authentication for AWS.
 - Automated deployment to Amazon EKS.
+- GitOps deployment using ArgoCD.
