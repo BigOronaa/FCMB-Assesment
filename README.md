@@ -47,8 +47,8 @@ The Terraform configuration is modularized with a reusable ECR module. Validatio
 The implementation follows reusable module principles to simplify future extension for EKS and additional AWS services.
 
 ### Images
-![alt text](images/TerraformInit.png)
-![alt text](images/Terraformplan.png)
+![alt text](Images/TerraformInit.png)
+![alt text](Images/Terraformplan.png)
 
 ## Helm
 The Helm chart supports:
@@ -65,8 +65,8 @@ helm lint helm/microservice
 helm install fcmb-app helm/microservice --dry-run=client --debug
 ```
 ### Images
-![alt text](images/helmcreate.png)
-![alt text](images/helmlint.png)
+![alt text](Images/helmcreate.png)
+![alt text](Images/helmlint.png)
 
 
 ## Docker
@@ -79,12 +79,12 @@ docker run -d -p 8080:80 fcmb-microservice
 ```
 
 ### Images
-![alt text](images/dockerfile-build.png)
+![alt text](Images/dockerfile-build.png)
 
 The app was working on the browser on port 8080:80
 
 ### Images
-![alt text](images/port8080.png)
+![alt text](Images/port8080.png)
 
 ## GitHub Actions
 Pipeline stages:
@@ -102,7 +102,7 @@ Initial pipeline failure:
 Error: Username and password required
 ```
 ### Images
-![alt text](images/failed_pipeline.png)
+![alt text](Images/failed_pipeline.png)
 
 ### Root Cause
 
@@ -134,7 +134,7 @@ with:
 After correcting the secret names, the pipeline completed successfully.
 
 ### Images
-![alt text](images/Passedpipeline.png)
+![alt text](Images/Passedpipeline.png)
 
 ## Pipeline Result
 
