@@ -140,9 +140,9 @@ The CI workflow validates infrastructure changes before building and publishing 
 
 Pipeline stages:
 
-1. Terraform Validation
+1. Terraform Quality Gates
 2. Docker Build and Push
-3. Helm Chart Validation
+3. Helm Validation
 
 ![alt text](Images/Passedpipeline.png)
 
