@@ -1,0 +1,88 @@
+name: FCMB Assessment CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  terraform:
+    name: Terraform Quality Gate
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan
+
+
+  docker:
+    name: Docker Build and Push
+    runs-on: ubuntu-latest
+    needs: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+          -t ${{ secrets.DOCKER_USERNAME }}/fcmb-microservice:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push \
+          ${{ secrets.DOCKER_USERNAME }}/fcmb-microservice:latest
+
+
+  helm:
+    name: Helm Validation
+    runs-on: ubuntu-latest
+    needs: docker
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm Lint
+        run: |
+          helm lint helm/microservice
+
+      - name: Helm Dry Run Installation
+        run: |
+          helm install fcmb-app helm/microservice \
+          --dry-run=client \
+          --debug \
+          --set image.repository=${{ secrets.DOCKER_USERNAME }}/fcmb-microservice
